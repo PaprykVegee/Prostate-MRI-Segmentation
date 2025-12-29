@@ -27,6 +27,9 @@ from monai.transforms import (
     SpatialPadd,
 )
 
+import pytorch_lightning as pl
+from typing import Optional
+
 
 MSD_TAR_URL = "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task05_Prostate.tar"
 
@@ -251,3 +254,60 @@ def create_dataloaders(
     )
 
     return train_loader, val_loader, test_loader, meta
+
+
+
+class ProstateDataModule(pl.LightningDataModule):
+    def __init__(
+        self,
+        root_dir: str,
+        batch_size: int = 2,
+        val_frac: float = 0.2,
+        num_workers: int = 4,
+        augment: bool = True,
+        roi_size=(128, 128, 64),
+        spacing=(1.5, 1.5, 2.0),
+        cache_dataset=False,
+        cache_rate=1.0,
+        seed: int = 42
+    ):
+        super().__init__()
+        self.root_dir = root_dir
+        self.batch_size = batch_size
+        self.val_frac = val_frac
+        self.num_workers = num_workers
+        self.augment = augment
+        self.roi_size = roi_size
+        self.spacing = spacing
+        self.cache_dataset = cache_dataset
+        self.cache_rate = cache_rate
+        self.seed = seed
+
+        self.train_loader = None
+        self.val_loader = None
+        self.test_loader = None
+        self.meta = None
+
+    def setup(self, stage: Optional[str] = None):
+        train, val, test, meta = create_dataloaders(
+            root_dir=self.root_dir,
+            batch_size=self.batch_size,
+            val_frac=self.val_frac,
+            num_workers=self.num_workers,
+            augment=self.augment,
+            roi_size=self.roi_size,
+            spacing=self.spacing,
+            cache_dataset=self.cache_dataset,
+            cache_rate=self.cache_rate,
+            seed=self.seed
+        )
+        self.train_loader, self.val_loader, self.test_loader, self.meta = train, val, test, meta
+
+    def train_dataloader(self):
+        return self.train_loader
+
+    def val_dataloader(self):
+        return self.val_loader
+
+    def test_dataloader(self):
+        return self.test_loader

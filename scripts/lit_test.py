@@ -20,7 +20,6 @@ batch = {"image": dummy_image, "label": dummy_label}
 loss, miou, dice = lit_model.compute_loss_and_metrics(batch)
 print(f"Loss: {loss.item():.4f}, mIoU: {miou:.4f}, Dice: {dice:.4f}")
 
-# 2. Sprawdzenie VNeta z Atencją
 print("\n--- Test: AttentionVNet ---")
 att_vnet = AttentionVNet(in_ch=1, out_ch=3)
 lit_att_model = LitBaseVNet(model_obj=att_vnet, in_ch=1, out_ch=3, lr=1e-3)

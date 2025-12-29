@@ -97,21 +97,16 @@ class _Decoder3D(nn.Module):
         for i, layer in enumerate(self.layers):
             x = layer(x)
             if i < len(skips):
-                x = x + skips[-(i + 1)]
+                skip_feat = skips[-(i + 1)]
+                if x.shape[2:] != skip_feat.shape[2:]:
+                    diff = [s - x.size(i+2) for i, s in enumerate(skip_feat.shape[2:])]
+                    padding = []
+                    for d in reversed(diff):
+                        padding.extend([d // 2, d - d // 2])
+                    x = torch.nn.functional.pad(x, padding)
+                x = x + skip_feat
         return self.final_conv(x)
     
-class VNet(nn.Module):
-    def __init__(self, in_ch, out_ch, base_channels=16):
-        super().__init__()
-        self.encoder = _Encoder3d(in_channels=in_ch, base_channels=base_channels)
-        self.decoder = _Decoder3D(in_channel=self.encoder.out_channels, base_channels=base_channels)
-        self.output_conv = nn.Conv3d(base_channels, out_ch, kernel_size=1)
-
-    def forward(self, x):
-        x, skips = self.encoder(x)
-        x = self.decoder(x, skips)
-        x = self.output_conv(x)
-        return x 
     
 class VNet(nn.Module):
     def __init__(self, in_ch, out_ch, base_channels=16):
@@ -238,15 +233,19 @@ class _AttDecoder3D(nn.Module):
 
     def forward(self, x, skips):
         for i, (up_layer, att_gate) in enumerate(zip(self.up_layers, self.att_gates)):
-            x = up_layer(x)  # x to sygnał z dekodera (gating)
-            
-            # Pobieramy odpowiedni skip connection (od końca)
+            x = up_layer(x)  
+
             skip_feat = skips[-(i + 1)]
-            
-            # Filtrujemy cechy z enkodera przez atencję
+
+            if x.shape[2:] != skip_feat.shape[2:]:
+                diff = [s - x.size(j+2) for j, s in enumerate(skip_feat.shape[2:])]
+                padding = []
+                for d in reversed(diff):
+                    padding.extend([d // 2, d - d // 2])
+                x = torch.nn.functional.pad(x, padding)
+
             attended_skip = att_gate(g=x, x=skip_feat)
             
-            # Sumujemy (klasyczny V-Net, ale z atencją)
             x = x + attended_skip
             
         return self.final_conv(x)
@@ -263,4 +262,17 @@ class AttentionVNet(nn.Module):
         x = self.decoder(x, skips)
         x = self.output_conv(x)
         return x
+    
+    
+# model = VNet(in_ch=1, out_ch=3)
+# x = torch.randn(64, 1, 32, 32, 32)  
+# y = model(x)
+# print(f"Input shape: {x.shape}")
+# print(f"Output shape: {y.shape}") 
+
+# model = AttentionVNet(in_ch=1, out_ch=3, base_channels=16)
+# x = torch.randn(1, 1, 64, 64, 64)  
+# y = model(x)
+# print(f"Input shape: {x.shape}")
+# print(f"Output shape: {y.shape}") 
 
