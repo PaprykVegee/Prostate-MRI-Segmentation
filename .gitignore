@@ -1,4 +1,6 @@
 data
+checkpoints
+checkpoints_vnet
 
 __pycache__/
 *.pyc
