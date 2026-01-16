@@ -142,18 +142,16 @@ def build_transforms(
         CropForegroundd(keys=["image", "label"], source_key="image"),
     ]
 
-    # padding do stałego rozmiaru (żeby zawsze było co najmniej roi_size)
     pad = [SpatialPadd(keys=["image", "label"], spatial_size=roi_size)]
 
-    # TRAIN: losowy patch roi_size (tak jak było)
     crop_train = [
         RandCropByPosNegLabeld(
             keys=["image", "label"],
             label_key="label",
             spatial_size=roi_size,
-            pos=3, # zwiększyłem z 1 na 3
+            pos=3,
             neg=1,
-            num_samples=2, #zwiększyłem z 1 na 2
+            num_samples=2,
             image_key="image",
             image_threshold=0,
         )
@@ -167,23 +165,22 @@ def build_transforms(
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
             RandAffined(
                 keys=["image", "label"],
-                prob=0.3, #zmiana z 0.3 do 0.5
-                rotate_range=(np.deg2rad(15), np.deg2rad(15), np.deg2rad(15)),  # (x,y,z) #zwiększyłem z 5 stopni na 15
-                scale_range=(0.15, 0.15, 0.15), # dodane Skalowanie +/- 15%
-                translate_range=(10, 10, 5),    # dodane Przesunięcia w mm 
+                prob=0.3,
+                rotate_range=(np.deg2rad(15), np.deg2rad(15), np.deg2rad(15)),
+                scale_range=(0.15, 0.15, 0.15),
+                translate_range=(10, 10, 5),
                 mode=("bilinear", "nearest"), 
                 padding_mode="border",
             ),
 
             RandGaussianNoised(
                 keys=["image"],
-                prob=0.2, # zmienione z 0.3 do 0.2
+                prob=0.2,
                 mean=0.0,
-                std=0.05, #zmienione z 0.01 do 0.05
+                std=0.05,
             ),
             RandShiftIntensityd(keys=["image"], offsets=0.05, prob=0.5),
-
-            # to dodałem    
+ 
             RandScaleIntensityd(keys=["image"], factors=0.1, prob=0.5),
             RandGaussianSmoothd(
                 keys=["image"], 
@@ -231,7 +228,7 @@ def create_dataloaders(
     val_frac: float = 0.2,
     augment: bool = True,
     # cache_dataset: bool = False,
-    cache_dataset: bool = True, # spróbować czy nie przyspieszy modelu wcześniej było false
+    cache_dataset: bool = True,
     cache_rate: float = 1.0,
     seed: int = 42,
     pin_memory: Optional[bool] = None,
@@ -306,7 +303,7 @@ class ProstateDataModule(pl.LightningDataModule):
         roi_size=(128, 128, 64),
         spacing=(1.5, 1.5, 2.0),
         # cache_dataset: bool = False,
-        cache_dataset: bool = True, # spróbować czy nie przyspieszy modelu wcześniej było false
+        cache_dataset: bool = True,
         cache_rate=1.0,
         seed: int = 42
     ):
