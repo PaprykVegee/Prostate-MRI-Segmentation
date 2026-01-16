@@ -1,10 +1,11 @@
-from __future__ import annotations
+# from __future__ import annotations
 
 import json
 import os
 import urllib.request
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple
+import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
@@ -25,7 +26,13 @@ from monai.transforms import (
     ScaleIntensityRanged,
     Spacingd,
     SpatialPadd,
+    RandAffined,
+    CenterSpatialCropd,
+    RandGaussianNoised,
+    RandScaleIntensityd,
+    RandGaussianSmoothd
 )
+
 
 import pytorch_lightning as pl
 from typing import Optional
@@ -118,7 +125,6 @@ def split_train_val(
     val_list = [train_files[i] for i in val_idx]
     return train_list, val_list
 
-
 def build_transforms(
     spacing: Tuple[float, float, float] = (1.5, 1.5, 2.0),
     roi_size: Tuple[int, int, int] = (128, 128, 64),
@@ -136,18 +142,18 @@ def build_transforms(
         CropForegroundd(keys=["image", "label"], source_key="image"),
     ]
 
-
-
+    # padding do stałego rozmiaru (żeby zawsze było co najmniej roi_size)
     pad = [SpatialPadd(keys=["image", "label"], spatial_size=roi_size)]
 
-    crop = [
+    # TRAIN: losowy patch roi_size (tak jak było)
+    crop_train = [
         RandCropByPosNegLabeld(
             keys=["image", "label"],
             label_key="label",
             spatial_size=roi_size,
-            pos=1,
+            pos=3, # zwiększyłem z 1 na 3
             neg=1,
-            num_samples=1,  
+            num_samples=2, #zwiększyłem z 1 na 2
             image_key="image",
             image_threshold=0,
         )
@@ -159,14 +165,45 @@ def build_transforms(
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-            RandRotate90d(keys=["image", "label"], prob=0.2, max_k=3),
+            RandAffined(
+                keys=["image", "label"],
+                prob=0.3, #zmiana z 0.3 do 0.5
+                rotate_range=(np.deg2rad(15), np.deg2rad(15), np.deg2rad(15)),  # (x,y,z) #zwiększyłem z 5 stopni na 15
+                scale_range=(0.15, 0.15, 0.15), # dodane Skalowanie +/- 15%
+                translate_range=(10, 10, 5),    # dodane Przesunięcia w mm 
+                mode=("bilinear", "nearest"), 
+                padding_mode="border",
+            ),
+
+            RandGaussianNoised(
+                keys=["image"],
+                prob=0.2, # zmienione z 0.3 do 0.2
+                mean=0.0,
+                std=0.05, #zmienione z 0.01 do 0.05
+            ),
             RandShiftIntensityd(keys=["image"], offsets=0.05, prob=0.5),
+
+            # to dodałem    
+            RandScaleIntensityd(keys=["image"], factors=0.1, prob=0.5),
+            RandGaussianSmoothd(
+                keys=["image"], 
+                sigma_x=(0.25, 1.0), 
+                sigma_y=(0.25, 1.0), 
+                sigma_z=(0.25, 1.0), 
+                prob=0.2
+            ),
         ]
 
-    train_transforms = Compose(base + pad + crop + aug + [EnsureTyped(keys=["image", "label"])])
-    val_transforms = Compose(base + [EnsureTyped(keys=["image", "label"])])
+    train_transforms = Compose(base + pad + crop_train + aug + [EnsureTyped(keys=["image", "label"])])
+
+    val_transforms = Compose(
+        base
+        + pad
+        + [EnsureTyped(keys=["image", "label"])]
+    )
 
     return train_transforms, val_transforms
+
 
 
 def build_test_transforms(
@@ -193,7 +230,8 @@ def create_dataloaders(
     num_workers: int = 2,
     val_frac: float = 0.2,
     augment: bool = True,
-    cache_dataset: bool = False,
+    # cache_dataset: bool = False,
+    cache_dataset: bool = True, # spróbować czy nie przyspieszy modelu wcześniej było false
     cache_rate: float = 1.0,
     seed: int = 42,
     pin_memory: Optional[bool] = None,
@@ -267,7 +305,8 @@ class ProstateDataModule(pl.LightningDataModule):
         augment: bool = True,
         roi_size=(128, 128, 64),
         spacing=(1.5, 1.5, 2.0),
-        cache_dataset=False,
+        # cache_dataset: bool = False,
+        cache_dataset: bool = True, # spróbować czy nie przyspieszy modelu wcześniej było false
         cache_rate=1.0,
         seed: int = 42
     ):

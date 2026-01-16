@@ -1,6 +1,13 @@
 data
-checkpoints
-checkpoints_vnet
+checkpoints/*
+checkpoints_vnet/*
+notebooks/grid_search_logs
+notebooks/grid_search_results
+notebooks/checkpoints
 
 __pycache__/
 *.pyc
+
+\!checkpoints_vnet/run_2/best-vnet-epoch=194-val_dice=0.580.ckpt
+\!checkpoints/run_17/best-attention-vnet-epoch=194-val_dice=0.567.ckpt
+
