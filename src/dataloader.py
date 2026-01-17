@@ -268,7 +268,7 @@ def create_dataloaders(
     val_loader = DataLoader(
         val_ds,
         batch_size=1,
-        shuffle=False,
+        shuffle=True,
         num_workers=num_workers,
         pin_memory=pin_memory,
     )
